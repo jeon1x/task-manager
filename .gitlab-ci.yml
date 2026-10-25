@@ -1,0 +1,26 @@
+stages:
+  - validate
+  - test
+  - package
+
+validate:
+  stage: validate
+  image: python:3.12.7-slim
+  script:
+    - echo "Проверка версии Python:"
+    - python --version
+    - echo "Коммит: $CI_COMMIT_SHA"
+    - echo "Компиляция всех .py-файлов"
+    - python -m py_compile $(find . -name "*.py" -not -path "./.git/*")
+
+test:
+  stage: test
+  image: python:3.12.7-slim
+  script:
+    - echo "Стадия test"
+
+package:
+  stage: package
+  image: python:3.12.7-slim
+  script:
+    - echo "Стадия package"
