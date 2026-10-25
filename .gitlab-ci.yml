@@ -7,10 +7,10 @@ validate:
   stage: validate
   image: python:3.12.7-slim
   script:
-    - echo "Проверка версии Python:"
+    - echo "Проверка версии Python"
     - python --version
-    - echo "Коммит: $CI_COMMIT_SHA"
-    - echo "Компиляция всех .py-файлов"
+    - echo "Коммит $CI_COMMIT_SHA"
+    - echo "Компиляция всех файлов"
     - python -m compileall -q .
 
 test:
