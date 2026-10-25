@@ -11,7 +11,7 @@ validate:
     - python --version
     - echo "Коммит: $CI_COMMIT_SHA"
     - echo "Компиляция всех .py-файлов"
-    - find . -name "*.py" -not -path "./.git/*" -exec python -m py_compile {} +
+    - python -m compileall -q .
 
 test:
   stage: test
