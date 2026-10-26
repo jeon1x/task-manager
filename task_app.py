@@ -3,8 +3,8 @@ import sys
 
 
 def create_task(title: str, tasks: list) -> list:
-    if not title or not title.strip():
-        raise ValueError("Название задачи не может быть пустым")
+    #if not title or not title.strip():
+        #raise ValueError("Название задачи не может быть пустым")
     tasks.append({"title": title.strip(), "done": False})
     return tasks
 
