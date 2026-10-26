@@ -1,58 +1,67 @@
-name: Задание 1 - Базовый конвейер
+name: практическая 4
 
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*' # теги v* автоматически запускают пайплайн
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  # 1. Валидация
   validate:
+    # validate
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Клонирование репозитория
-        uses: actions/checkout@v4
-
-      - name: Настройка Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12.7'
-
       - name: Вывод версии Python и коммита
         run: |
           python --version
           echo "Коммит: ${{ github.sha }}"
-
       - name: Компиляция всех .py-файлов
         run: python -m compileall -q .
 
-  # 2. Тесты 
   unit_tests:
     needs: validate
+    # test (unit_tests)
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Клонирование репозитория
-        uses: actions/checkout@v4
-
-      - name: Настройка Python 3.12.7
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12.7'
-
+      
+      - name: Проверка наличия DEPLOY_TOKEN (без вывода значения)
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "Ошибка: DEPLOY_TOKEN не задан!"
+            exit 1
+          fi
+          echo "Токен присутствует. Длина: ${#DEPLOY_TOKEN} символов."
+          echo "Значение токена не выводится в целях безопасности."
+          
       - name: Запуск unit-тестов
         run: python -m unittest discover -s tests -v
 
-  # 3. Упаковка
   package:
     needs: unit_tests
+    # package выполняется только для main или для тегов v*
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Клонирование репозитория
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Формирование каталога dist и манифеста
+        env:
+          APP_PORT: ${{ vars.APP_PORT }} # использование переменной
         run: |
+          echo "Используется APP_PORT: $APP_PORT"
           mkdir -p dist
           cp task_app.py dist/
           cp README.md dist/
@@ -61,13 +70,13 @@ jobs:
           
           echo "CI_COMMIT_SHA: ${{ github.sha }}" > dist/manifest.txt
           echo "CI_PIPELINE_ID: ${{ github.run_id }}" >> dist/manifest.txt
+          echo "APP_PORT: $APP_PORT" >> dist/manifest.txt
           echo "Файлы:" >> dist/manifest.txt
           ls dist/ >> dist/manifest.txt
           
-          echo "Содержимое manifest.txt:"
           cat dist/manifest.txt
 
-      - name: Публикация артефакта (срок хранения 7 дней)
+      - name: Публикация артефакта
         uses: actions/upload-artifact@v4
         with:
           name: dist-package
