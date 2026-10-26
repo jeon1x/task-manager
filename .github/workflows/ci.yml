@@ -50,5 +50,26 @@ jobs:
     steps:
       - name: Клонирование репозитория
         uses: actions/checkout@v4
-      - name: Заглушка 
-        run: echo "Стадия package успешно пройдена"
+
+      - name: Формирование каталога dist и манифеста
+        run: |
+          mkdir -p dist
+          cp task_app.py dist/
+          cp README.md dist/
+          cp Dockerfile dist/
+          cp tasks.json.example dist/
+          
+          echo "CI_COMMIT_SHA: ${{ github.sha }}" > dist/manifest.txt
+          echo "CI_PIPELINE_ID: ${{ github.run_id }}" >> dist/manifest.txt
+          echo "Файлы:" >> dist/manifest.txt
+          ls dist/ >> dist/manifest.txt
+          
+          echo "Содержимое manifest.txt:"
+          cat dist/manifest.txt
+
+      - name: Публикация артефакта (срок хранения 7 дней)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-package
+          path: dist/
+          retention-days: 7
