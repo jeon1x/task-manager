@@ -45,7 +45,7 @@ jobs:
 
   # 3. Упаковка
   package:
-    needs: test
+    needs: unit_tests
     runs-on: ubuntu-latest
     steps:
       - name: Клонирование репозитория
