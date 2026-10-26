@@ -1,0 +1,48 @@
+name: Задание 1 - Базовый конвейер
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # 1. Валидация
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.7'
+
+      - name: Вывод версии Python и коммита
+        run: |
+          python --version
+          echo "Коммит: ${{ github.sha }}"
+
+      - name: Компиляция всех .py-файлов
+        run: python -m compileall -q .
+
+  # 2. Тесты 
+  test:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+      - name: Заглушка
+        run: echo "Стадия test успешно пройдена"
+
+  # 3. Упаковка
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+      - name: Заглушка 
+        run: echo "Стадия package успешно пройдена"
