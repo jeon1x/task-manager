@@ -4,14 +4,14 @@ on:
   push:
     branches: [ "main" ]
     tags:
-      - 'v*' # теги v* автоматически запускают пайплайн
+      - 'v*'
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: # Добавлено для ручного запуска (Задание 5)
 
 jobs:
   validate:
-    # validate
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,16 +27,14 @@ jobs:
 
   unit_tests:
     needs: validate
-    # test (unit_tests)
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12.7'
-      
-      - name: Проверка наличия DEPLOY_TOKEN (без вывода значения)
+      - name: Проверка наличия DEPLOY_TOKEN
         env:
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: |
@@ -45,40 +43,74 @@ jobs:
             exit 1
           fi
           echo "Токен присутствует. Длина: ${#DEPLOY_TOKEN} символов."
-          echo "Значение токена не выводится в целях безопасности."
-          
       - name: Запуск unit-тестов
         run: python -m unittest discover -s tests -v
 
   package:
     needs: unit_tests
-    # package выполняется только для main или для тегов v*
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Формирование каталога dist и манифеста
         env:
-          APP_PORT: ${{ vars.APP_PORT }} # использование переменной
+          APP_PORT: ${{ vars.APP_PORT }}
         run: |
-          echo "Используется APP_PORT: $APP_PORT"
           mkdir -p dist
           cp task_app.py dist/
           cp README.md dist/
           cp Dockerfile dist/
           cp tasks.json.example dist/
-          
           echo "CI_COMMIT_SHA: ${{ github.sha }}" > dist/manifest.txt
           echo "CI_PIPELINE_ID: ${{ github.run_id }}" >> dist/manifest.txt
           echo "APP_PORT: $APP_PORT" >> dist/manifest.txt
           echo "Файлы:" >> dist/manifest.txt
           ls dist/ >> dist/manifest.txt
-          
-          cat dist/manifest.txt
-
       - name: Публикация артефакта
         uses: actions/upload-artifact@v4
         with:
           name: dist-package
           path: dist/
           retention-days: 7
+
+  # ЗАДАНИЕ 5
+  deploy_test:
+    needs: package
+    #запускается только вручную и только из ветки main
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: test/tasks
+      url: https://example.com/test-tasks
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+      
+      - name: Настройка Python 3.12.7
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.7'
+          
+      - name: Скачивание артефакта (копирование в deploy/test)
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-package
+          path: deploy/test
+          
+      - name: Дымовая проверка (Smoke Test)
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'deploy/test')
+          import task_app
+          tasks = []
+          task_app.create_task('Тестовая задача для дымовой проверки', tasks)
+          assert len(tasks) == 1, 'Ошибка создания задачи'
+          print('Smoke test пройден: задача создана во временном файле.')
+          " | tee deployment.txt
+          
+      - name: Сохранение отчета deployment.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: deployment.txt
